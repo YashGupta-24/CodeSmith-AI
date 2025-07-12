@@ -21,8 +21,8 @@ from uagents_core.contrib.protocols.chat import (
 
 client = Together()
 
-code_gen = Agent(
-    name="Code Generation Agent",
+code_smith = Agent(
+    name="Code Smith AI",
     seed="I am a code generating agent",
     port=8080,
     mailbox=True,  
@@ -31,7 +31,7 @@ code_gen = Agent(
 
 )
 
-fund_agent_if_low(code_gen.wallet.address()) #type:ignore
+fund_agent_if_low(code_smith.wallet.address()) #type:ignore
 
 chat_proto = Protocol(spec=chat_protocol_spec)
 
@@ -105,7 +105,7 @@ class HealthCheck(Model):
 class HealthStatus(Model):
     status: str
 
-@code_gen.on_message(model=HealthCheck)
+@code_smith.on_message(model=HealthCheck)
 async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
     """Handle health check requests to ensure the agent is functioning properly"""
     try:
@@ -117,17 +117,25 @@ async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
     except Exception:
         await ctx.send(sender, HealthStatus(status="unhealthy"))
 
-@code_gen.on_message(model=CodeQuery)
+@code_smith.on_message(model=CodeQuery)
 async def handle_query(ctx: Context, sender: str, msg: CodeQuery):
-    ctx.logger.info(f"Received image generation task: {msg.prompt}")
+    ctx.logger.info(f"Received code generation task: {msg.prompt}")
+    # prompt='''
+    #     query:{msg.prompt}
+    #     Execute the query and generate the response in the following format, properly categorized:
+    #     1. Code
+    #     2. Explanation
+    # '''
+    # ctx.logger.info(prompt)
+    # response = generate_with_together(prompt)
     response = generate_with_together(msg.prompt)
     await ctx.send(sender, CodeResponse(result=response))
 
-code_gen.include(chat_proto, publish_manifest=True)
+code_smith.include(chat_proto, publish_manifest=True)
 
-@code_gen.on_event('startup')
+@code_smith.on_event('startup')
 async def startup(ctx: Context):
-    ctx.logger.info("Image Generation Agent started successfully!")
+    ctx.logger.info("Code Generation Agent started successfully!")
 
 if __name__ == "__main__":
-    code_gen.run()
+    code_smith.run()
