@@ -3,6 +3,7 @@ from uagents.setup import fund_agent_if_low
 
 class CodeQuery(Model):
     prompt: str
+    language:str
 
 class DebugQuery(Model):
     code: str
@@ -24,7 +25,7 @@ async def check(_: Context)->CodeResponse:
 @rest.on_rest_post("/generate", CodeQuery, CodeResponse)
 async def code_gen(ctx: Context, req:CodeQuery)->CodeResponse:
     print(f"Query received: {req.prompt}")
-    response_tuple = await ctx.send_and_receive(code_smith_agent, CodeQuery(prompt=req.prompt), response_type=CodeResponse)
+    response_tuple = await ctx.send_and_receive(code_smith_agent, CodeQuery(prompt=req.prompt, language=req.language), response_type=CodeResponse)
     if response_tuple and isinstance(response_tuple, tuple) and len(response_tuple) > 0 and response_tuple[0]:
         output = response_tuple[0].result  # type: ignore
         print(output)

@@ -1,14 +1,15 @@
 from uagents import Agent, Context, Model, Protocol
 from uagents.setup import fund_agent_if_low
-from together import Together
 from datetime import datetime
 from uuid import uuid4
-import os
-from dotenv import load_dotenv
+from conversation import generate_with_together
+# from together import Together
+# import os
+# from dotenv import load_dotenv
+# load_dotenv()
 
-load_dotenv()
 
-os.environ["TOGETHER_API_KEY"] = os.getenv("TOGETHER_API_KEY") #type:ignore
+# os.environ["TOGETHER_API_KEY"] = os.getenv("TOGETHER_API_KEY") #type:ignore
 
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
@@ -19,7 +20,7 @@ from uagents_core.contrib.protocols.chat import (
     chat_protocol_spec,
 )
 
-client = Together()
+# client = Together()
 
 code_smith = Agent(
     name="Code Smith AI",
@@ -37,9 +38,17 @@ chat_proto = Protocol(spec=chat_protocol_spec)
 
 class CodeQuery(Model):
     prompt: str
+    language: str
 
 class CodeResponse(Model):
     result: str
+
+# GENERATE_PROMPT_STRING='''
+# query:{query}
+# Execute the query and generate the response in the language:{language}. The output format should be:
+# 1. Code
+# 2. Explanation
+# '''
 
 def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
     content = [TextContent(type="text", text=text)]
@@ -51,23 +60,24 @@ def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
         content=content, #type:ignore
     ) 
 
-def generate_with_together(prompt: str) -> str:
-    try:
-        response = client.chat.completions.create(
-            model="Qwen/Qwen2.5-Coder-32B-Instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            stream=False  
-        )
-        if hasattr(response, 'choices'):
-            return response.choices[0].message.content #type:ignore
-        return "Unable to generate a response."
-    except Exception as e:
-        return f"Error occurred: {str(e)}"
+# def generate_with_together(prompt: str, language:str) -> str:
+#     try:
+#         final_prompt=GENERATE_PROMPT_STRING.format(query=prompt, language=language)
+#         response = client.chat.completions.create(
+#             model="Qwen/Qwen2.5-Coder-32B-Instruct",
+#             messages=[
+#                 {
+#                     "role": "user",
+#                     "content": final_prompt
+#                 }
+#             ],
+#             stream=False  
+#         )
+#         if hasattr(response, 'choices'):
+#             return response.choices[0].message.content #type:ignore
+#         return "Unable to generate a response."
+#     except Exception as e:
+#         return f"Error occurred: {str(e)}"
 
 @chat_proto.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
@@ -86,7 +96,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
         elif isinstance(item, TextContent):
             ctx.logger.info(f"Got a message from {sender}: {item.text}")
             
-            result = generate_with_together(item.text)
+            result = generate_with_together(item.text[0], item.text[1])
             
             chat_message = create_text_chat(result)
             await ctx.send(sender, chat_message)
@@ -109,7 +119,7 @@ class HealthStatus(Model):
 async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
     """Handle health check requests to ensure the agent is functioning properly"""
     try:
-        test_result = generate_with_together("Hello")
+        test_result = generate_with_together("Hello", "Java")
         if test_result and "Error" not in test_result:
             await ctx.send(sender, HealthStatus(status="healthy"))
         else:
@@ -120,15 +130,7 @@ async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
 @code_smith.on_message(model=CodeQuery)
 async def handle_query(ctx: Context, sender: str, msg: CodeQuery):
     ctx.logger.info(f"Received code generation task: {msg.prompt}")
-    # prompt='''
-    #     query:{msg.prompt}
-    #     Execute the query and generate the response in the following format, properly categorized:
-    #     1. Code
-    #     2. Explanation
-    # '''
-    # ctx.logger.info(prompt)
-    # response = generate_with_together(prompt)
-    response = generate_with_together(msg.prompt)
+    response = generate_with_together(msg.prompt, msg.language)
     await ctx.send(sender, CodeResponse(result=response))
 
 code_smith.include(chat_proto, publish_manifest=True)
