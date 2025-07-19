@@ -60,9 +60,9 @@ Include sections like:
 - License
 '''
 
-def generate_with_together(query: str, language:str) -> str:
+def generate_with_together(final_prompt:str) -> str:
     try:
-        final_prompt=GENERATE_PROMPT_STRING.format(query=query, language=language)
+        # final_prompt=GENERATE_PROMPT_STRING.format(query=query, language=language)
         response = client.chat.completions.create(
             model="Qwen/Qwen2.5-Coder-32B-Instruct",
             messages=[
@@ -78,3 +78,17 @@ def generate_with_together(query: str, language:str) -> str:
         return "Unable to generate a response."
     except Exception as e:
         return f"Error occurred: {str(e)}"
+    
+def main(task:str, query="",language="", code="", description="" ):
+    if task=="generate":
+        final_prompt=GENERATE_PROMPT_STRING.format(query=query, language=language)
+    
+    elif task=="debug":
+        final_prompt=DEBUG_PROMPT_STRING.format(code=code, description=description)
+
+    elif task=="gen_test_case":
+        final_prompt=TC_PROMPT_STRING.format(code=code, description=description)
+
+    elif task=="document":
+        final_prompt=README_PROMPT_STRING.format(code=code, description=description)
+    return generate_with_together(final_prompt=final_prompt)
